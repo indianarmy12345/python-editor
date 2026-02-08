@@ -49,3 +49,5 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+
+## This project is made by the LV TEAM
