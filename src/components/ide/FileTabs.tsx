@@ -58,10 +58,10 @@ const FileTabs = ({
       
       <button
         onClick={onNewTab}
-        className="p-2 hover:bg-secondary/80 transition-colors flex-shrink-0 border-l border-border"
-        title="New file"
+        className="p-2 mx-1 hover:bg-primary/20 rounded transition-colors flex-shrink-0"
+        title="New file (Ctrl+N)"
       >
-        <Plus className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+        <Plus className="w-5 h-5 text-primary hover:text-primary/80" />
       </button>
     </div>
   );
