@@ -1,37 +1,53 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "./Header";
+import MobileNav from "./MobileNav";
+import FileTabs from "./FileTabs";
 import CodeEditor from "./CodeEditor";
 import Console from "./Console";
 import TipsPanel from "./TipsPanel";
 import { usePyodide } from "@/hooks/usePyodide";
+import { useFileTabs } from "@/hooks/useFileTabs";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Loader2 } from "lucide-react";
-
-const defaultCode = `# Welcome to Python Editor! 🐍
-# Write your Python code here and click "Run" to execute it.
-
-# Example: Hello World
-print("Hello, World!")
-
-# Example: Simple calculation
-x = 10
-y = 20
-print(f"The sum of {x} and {y} is {x + y}")
-
-# Example: Loop
-for i in range(5):
-    print(f"Count: {i}")
-
-# Try modifying this code and run it!
-`;
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
 const PythonIDE = () => {
-  const [code, setCode] = useState(defaultCode);
+  const isMobile = useIsMobile();
+  const {
+    tabs,
+    activeTab,
+    activeTabId,
+    setActiveTabId,
+    createNewTab,
+    closeTab,
+    updateTabContent,
+    loadFileToTab,
+  } = useFileTabs();
+  
   const { isLoading, isRunning, outputs, runCode, clearOutputs, stopExecution } =
     usePyodide();
 
   const handleRun = useCallback(() => {
-    runCode(code);
-  }, [code, runCode]);
+    runCode(activeTab.content);
+  }, [activeTab.content, runCode]);
+
+  const handleCodeChange = useCallback(
+    (value: string | undefined) => {
+      updateTabContent(activeTabId, value || "");
+    },
+    [activeTabId, updateTabContent]
+  );
+
+  const handleLoadFile = useCallback(
+    (code: string, fileName?: string) => {
+      loadFileToTab(fileName || "loaded.py", code);
+    },
+    [loadFileToTab]
+  );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -39,8 +55,13 @@ const PythonIDE = () => {
         e.preventDefault();
         handleRun();
       }
+      // Ctrl+N for new tab
+      if ((e.ctrlKey || e.metaKey) && e.key === "n") {
+        e.preventDefault();
+        createNewTab();
+      }
     },
-    [handleRun]
+    [handleRun, createNewTab]
   );
 
   useEffect(() => {
@@ -50,14 +71,14 @@ const PythonIDE = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
+          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-primary animate-spin mx-auto" />
           <div>
-            <h2 className="text-xl font-semibold text-foreground">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">
               Loading Python Environment
             </h2>
-            <p className="text-muted-foreground text-sm mt-2">
+            <p className="text-muted-foreground text-xs sm:text-sm mt-2">
               Setting up Pyodide... This may take a moment.
             </p>
           </div>
@@ -67,34 +88,68 @@ const PythonIDE = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <Header
+          onRun={handleRun}
+          onStop={stopExecution}
+          onClear={clearOutputs}
+          isRunning={isRunning}
+          code={activeTab.content}
+          onCodeChange={(code) => handleLoadFile(code)}
+        />
+      </div>
+
+      {/* Mobile Header */}
+      <MobileNav
         onRun={handleRun}
         onStop={stopExecution}
         onClear={clearOutputs}
         isRunning={isRunning}
-        code={code}
-        onCodeChange={setCode}
+        code={activeTab.content}
+        onCodeChange={(code) => handleLoadFile(code)}
       />
 
+      {/* File Tabs */}
+      <FileTabs
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onTabSelect={setActiveTabId}
+        onTabClose={closeTab}
+        onNewTab={() => createNewTab()}
+      />
+
+      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Tips Panel - Hidden on mobile */}
-        <aside className="hidden lg:block w-64 flex-shrink-0">
+        {/* Tips Panel - Desktop only */}
+        <aside className="hidden xl:block w-64 flex-shrink-0">
           <TipsPanel />
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          {/* Code Editor */}
-          <div className="flex-1 min-h-[300px] lg:min-h-0 border-b lg:border-b-0 lg:border-r border-border">
-            <CodeEditor code={code} onChange={(value) => setCode(value || "")} />
+        {/* Editor and Console */}
+        {isMobile ? (
+          // Mobile: Vertical stack
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0">
+              <CodeEditor code={activeTab.content} onChange={handleCodeChange} />
+            </div>
+            <div className="h-48 border-t border-border flex-shrink-0">
+              <Console outputs={outputs} isRunning={isRunning} />
+            </div>
           </div>
-
-          {/* Console */}
-          <div className="h-64 lg:h-auto lg:w-[400px] xl:w-[500px] flex-shrink-0">
-            <Console outputs={outputs} isRunning={isRunning} />
-          </div>
-        </main>
+        ) : (
+          // Desktop: Resizable panels
+          <ResizablePanelGroup direction="horizontal" className="flex-1">
+            <ResizablePanel defaultSize={60} minSize={30}>
+              <CodeEditor code={activeTab.content} onChange={handleCodeChange} />
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={40} minSize={20}>
+              <Console outputs={outputs} isRunning={isRunning} />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
     </div>
   );

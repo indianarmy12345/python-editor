@@ -1,5 +1,6 @@
 import Editor from "@monaco-editor/react";
 import { useTheme } from "next-themes";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CodeEditorProps {
   code: string;
@@ -8,6 +9,7 @@ interface CodeEditorProps {
 
 const CodeEditor = ({ code, onChange }: CodeEditorProps) => {
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   
   return (
     <div className="ide-editor h-full w-full">
@@ -18,24 +20,26 @@ const CodeEditor = ({ code, onChange }: CodeEditorProps) => {
         value={code}
         onChange={onChange}
         options={{
-          fontSize: 14,
+          fontSize: isMobile ? 12 : 14,
           fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-          minimap: { enabled: true },
+          minimap: { enabled: !isMobile },
           scrollBeyondLastLine: false,
           automaticLayout: true,
           tabSize: 4,
           insertSpaces: true,
           wordWrap: "on",
-          lineNumbers: "on",
+          lineNumbers: isMobile ? "off" : "on",
           renderLineHighlight: "all",
           cursorBlinking: "smooth",
           cursorSmoothCaretAnimation: "on",
           smoothScrolling: true,
-          padding: { top: 16, bottom: 16 },
+          padding: { top: 12, bottom: 12 },
           suggest: {
             showKeywords: true,
             showSnippets: true,
           },
+          folding: !isMobile,
+          glyphMargin: !isMobile,
         }}
       />
     </div>
