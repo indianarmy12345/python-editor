@@ -119,6 +119,7 @@ const PythonIDE = () => {
         onTabSelect={setActiveTabId}
         onTabClose={closeTab}
         onNewTab={() => createNewTab()}
+        onTabRename={renameTab}
       />
 
       {/* Main Content */}
