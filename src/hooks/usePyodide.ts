@@ -92,6 +92,74 @@ export const usePyodide = () => {
     loadPyodideScript();
   }, []);
 
+  const installImports = useCallback(async (code: string) => {
+    const py = pyodideRef.current;
+    if (!py) return;
+
+    // Extract import statements
+    const importRegex = /^\s*(?:import|from)\s+([a-zA-Z_][a-zA-Z0-9_]*)/gm;
+    const stdlibAndBuiltin = new Set([
+      "sys", "os", "io", "re", "math", "json", "random", "time", "datetime",
+      "collections", "itertools", "functools", "operator", "string", "textwrap",
+      "struct", "copy", "pprint", "typing", "abc", "contextlib", "decimal",
+      "fractions", "statistics", "pathlib", "glob", "shutil", "pickle",
+      "shelve", "csv", "configparser", "hashlib", "hmac", "secrets",
+      "logging", "warnings", "traceback", "unittest", "doctest",
+      "enum", "dataclasses", "array", "queue", "heapq", "bisect",
+      "ast", "dis", "inspect", "importlib", "pkgutil", "token", "tokenize",
+      "urllib", "html", "xml", "email", "base64", "binascii", "cmath",
+      "difflib", "calendar", "locale", "gettext", "argparse", "optparse",
+      "sqlite3", "zlib", "gzip", "bz2", "lzma", "zipfile", "tarfile",
+      "socket", "ssl", "select", "signal", "mmap", "codecs", "unicodedata",
+      "stringprep", "readline", "rlcompleter", "weakref", "types",
+      "pdb", "profile", "timeit", "platform", "errno", "ctypes",
+      // Pyodide built-ins
+      "pyodide", "micropip", "js",
+      // Common internal modules
+      "__future__", "builtins", "_thread", "threading", "multiprocessing",
+    ]);
+
+    const modules = new Set<string>();
+    let match;
+    while ((match = importRegex.exec(code)) !== null) {
+      const mod = match[1];
+      if (!stdlibAndBuiltin.has(mod)) {
+        modules.add(mod);
+      }
+    }
+
+    if (modules.size === 0) return;
+
+    // Load micropip and install missing packages
+    await py.loadPackage("micropip");
+    const micropip = py.pyimport("micropip");
+
+    for (const mod of modules) {
+      try {
+        // Check if already available
+        py.runPython(`import ${mod}`);
+      } catch {
+        // Not available, try installing
+        setOutputs((prev) => [
+          ...prev,
+          { type: "info", content: `📦 Installing package: ${mod}...`, timestamp: new Date() },
+        ]);
+        try {
+          await micropip.install(mod);
+          setOutputs((prev) => [
+            ...prev,
+            { type: "info", content: `✅ Installed ${mod} successfully`, timestamp: new Date() },
+          ]);
+        } catch (err: any) {
+          setOutputs((prev) => [
+            ...prev,
+            { type: "error", content: `❌ Failed to install ${mod}: ${err.message || err}`, timestamp: new Date() },
+          ]);
+        }
+      }
+    }
+  }, []);
+
   const runCode = useCallback(
     async (code: string) => {
       if (!pyodideRef.current || isRunning) return;
@@ -99,14 +167,13 @@ export const usePyodide = () => {
       setIsRunning(true);
       setOutputs((prev) => [
         ...prev,
-        {
-          type: "info",
-          content: ">>> Running code...",
-          timestamp: new Date(),
-        },
+        { type: "info", content: ">>> Running code...", timestamp: new Date() },
       ]);
 
       try {
+        // Auto-install imports
+        await installImports(code);
+
         // Redirect stdout and stderr
         pyodideRef.current.runPython(`
 import sys
@@ -142,46 +209,29 @@ sys.stderr = _stderr_capture
         if (stdout) {
           setOutputs((prev) => [
             ...prev,
-            {
-              type: "output",
-              content: stdout,
-              timestamp: new Date(),
-            },
+            { type: "output", content: stdout, timestamp: new Date() },
           ]);
         }
 
         if (stderr) {
           setOutputs((prev) => [
             ...prev,
-            {
-              type: "error",
-              content: stderr,
-              timestamp: new Date(),
-            },
+            { type: "error", content: stderr, timestamp: new Date() },
           ]);
         }
 
         if (!stdout && !stderr) {
           setOutputs((prev) => [
             ...prev,
-            {
-              type: "info",
-              content: "Code executed successfully (no output)",
-              timestamp: new Date(),
-            },
+            { type: "info", content: "Code executed successfully (no output)", timestamp: new Date() },
           ]);
         }
       } catch (error: any) {
         setOutputs((prev) => [
           ...prev,
-          {
-            type: "error",
-            content: error.message || String(error),
-            timestamp: new Date(),
-          },
+          { type: "error", content: error.message || String(error), timestamp: new Date() },
         ]);
       } finally {
-        // Reset stdout/stderr
         pyodideRef.current?.runPython(`
 import sys
 sys.stdout = sys.__stdout__
@@ -190,7 +240,7 @@ sys.stderr = sys.__stderr__
         setIsRunning(false);
       }
     },
-    [isRunning]
+    [isRunning, installImports]
   );
 
   const clearOutputs = useCallback(() => {
