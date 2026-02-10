@@ -1,4 +1,4 @@
-import { Menu, Play, Square, RotateCcw, Lightbulb } from "lucide-react";
+import { Menu, Play, Square, RotateCcw, Database } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -10,6 +10,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import FileMenu from "./FileMenu";
 import TipsPanel from "./TipsPanel";
 import pythonLogo from "@/assets/python-logo.png";
+import mysqlLogo from "@/assets/mysql-logo.svg";
+import type { EditorMode } from "./PythonIDE";
 
 interface MobileNavProps {
   onRun: () => void;
@@ -18,6 +20,8 @@ interface MobileNavProps {
   isRunning: boolean;
   code: string;
   onCodeChange: (code: string) => void;
+  editorMode: EditorMode;
+  onEditorModeChange: (mode: EditorMode) => void;
 }
 
 const MobileNav = ({
@@ -27,7 +31,10 @@ const MobileNav = ({
   isRunning,
   code,
   onCodeChange,
+  editorMode,
+  onEditorModeChange,
 }: MobileNavProps) => {
+  const isPython = editorMode === "python";
   return (
     <header className="ide-header px-3 py-2 flex items-center justify-between lg:hidden">
       {/* Left: Menu + Logo */}
