@@ -150,7 +150,7 @@ const PythonIDE = () => {
           // Desktop: Resizable panels
           <ResizablePanelGroup direction="horizontal" className="flex-1">
             <ResizablePanel defaultSize={60} minSize={30}>
-              <CodeEditor code={activeTab.content} onChange={handleCodeChange} />
+              <CodeEditor code={activeTab.content} onChange={handleCodeChange} language={editorMode === "mysql" ? "sql" : "python"} />
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={40} minSize={20}>
