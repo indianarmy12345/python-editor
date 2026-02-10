@@ -25,6 +25,7 @@ const PythonIDE = () => {
     createNewTab,
     closeTab,
     updateTabContent,
+    renameTab,
     loadFileToTab,
   } = useFileTabs();
   
