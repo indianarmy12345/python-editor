@@ -56,7 +56,6 @@ const PythonIDE = () => {
         e.preventDefault();
         handleRun();
       }
-      // Ctrl+N for new tab
       if ((e.ctrlKey || e.metaKey) && e.key === "n") {
         e.preventDefault();
         createNewTab();
