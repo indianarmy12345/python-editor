@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Header from "./Header";
 import MobileNav from "./MobileNav";
 import FileTabs from "./FileTabs";
@@ -9,6 +9,8 @@ import { usePyodide } from "@/hooks/usePyodide";
 import { useFileTabs } from "@/hooks/useFileTabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Loader2 } from "lucide-react";
+
+export type EditorMode = "python" | "mysql";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -16,6 +18,7 @@ import {
 } from "@/components/ui/resizable";
 
 const PythonIDE = () => {
+  const [editorMode, setEditorMode] = useState<EditorMode>("python");
   const isMobile = useIsMobile();
   const {
     tabs,
@@ -98,6 +101,8 @@ const PythonIDE = () => {
           isRunning={isRunning}
           code={activeTab.content}
           onCodeChange={(code) => handleLoadFile(code)}
+          editorMode={editorMode}
+          onEditorModeChange={setEditorMode}
         />
       </div>
 
@@ -109,6 +114,8 @@ const PythonIDE = () => {
         isRunning={isRunning}
         code={activeTab.content}
         onCodeChange={(code) => handleLoadFile(code)}
+        editorMode={editorMode}
+        onEditorModeChange={setEditorMode}
       />
 
       {/* File Tabs */}
@@ -133,7 +140,7 @@ const PythonIDE = () => {
           // Mobile: Vertical stack
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 min-h-0">
-              <CodeEditor code={activeTab.content} onChange={handleCodeChange} />
+              <CodeEditor code={activeTab.content} onChange={handleCodeChange} language={editorMode === "mysql" ? "sql" : "python"} />
             </div>
             <div className="h-48 border-t border-border flex-shrink-0">
               <Console outputs={outputs} isRunning={isRunning} />
@@ -143,7 +150,7 @@ const PythonIDE = () => {
           // Desktop: Resizable panels
           <ResizablePanelGroup direction="horizontal" className="flex-1">
             <ResizablePanel defaultSize={60} minSize={30}>
-              <CodeEditor code={activeTab.content} onChange={handleCodeChange} />
+              <CodeEditor code={activeTab.content} onChange={handleCodeChange} language={editorMode === "mysql" ? "sql" : "python"} />
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={40} minSize={20}>
