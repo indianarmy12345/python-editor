@@ -25,6 +25,7 @@ const PythonIDE = () => {
     createNewTab,
     closeTab,
     updateTabContent,
+    renameTab,
     loadFileToTab,
   } = useFileTabs();
   
@@ -118,6 +119,7 @@ const PythonIDE = () => {
         onTabSelect={setActiveTabId}
         onTabClose={closeTab}
         onNewTab={() => createNewTab()}
+        onTabRename={renameTab}
       />
 
       {/* Main Content */}
