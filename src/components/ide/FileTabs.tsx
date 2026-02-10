@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from "react";
 import { Plus, X } from "lucide-react";
 import { FileTab } from "@/hooks/useFileTabs";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,7 @@ interface FileTabsProps {
   onTabSelect: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
   onNewTab: () => void;
+  onTabRename?: (tabId: string, newName: string) => void;
 }
 
 const FileTabs = ({
@@ -17,7 +19,40 @@ const FileTabs = ({
   onTabSelect,
   onTabClose,
   onNewTab,
+  onTabRename,
 }: FileTabsProps) => {
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startEditing = useCallback((tab: FileTab) => {
+    setEditingTabId(tab.id);
+    setEditValue(tab.name);
+    setTimeout(() => inputRef.current?.select(), 0);
+  }, []);
+
+  const commitRename = useCallback(() => {
+    if (editingTabId && editValue.trim() && onTabRename) {
+      const name = editValue.trim().endsWith(".py") ? editValue.trim() : editValue.trim() + ".py";
+      onTabRename(editingTabId, name);
+    }
+    setEditingTabId(null);
+  }, [editingTabId, editValue, onTabRename]);
+
+  const handleTouchStart = useCallback((tab: FileTab) => {
+    longPressTimer.current = setTimeout(() => {
+      startEditing(tab);
+    }, 600);
+  }, [startEditing]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   return (
     <div className="flex items-center bg-secondary/30 border-b border-border overflow-hidden">
       <ScrollArea className="flex-1">
@@ -25,7 +60,11 @@ const FileTabs = ({
           {tabs.map((tab) => (
             <div
               key={tab.id}
-              onClick={() => onTabSelect(tab.id)}
+              onClick={() => { if (editingTabId !== tab.id) onTabSelect(tab.id); }}
+              onDoubleClick={() => startEditing(tab)}
+              onTouchStart={() => handleTouchStart(tab)}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
               className={cn(
                 "group flex items-center gap-2 px-3 py-2 text-sm cursor-pointer border-r border-border transition-colors min-w-[100px] max-w-[180px]",
                 activeTabId === tab.id
@@ -33,10 +72,26 @@ const FileTabs = ({
                   : "bg-secondary/50 text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
               )}
             >
-              <span className="truncate flex-1 text-left">
-                {tab.isModified && <span className="text-primary mr-1">●</span>}
-                {tab.name}
-              </span>
+              {editingTabId === tab.id ? (
+                <input
+                  ref={inputRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    if (e.key === "Escape") setEditingTabId(null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-transparent border border-primary/50 rounded px-1 text-sm w-full outline-none text-foreground"
+                  autoFocus
+                />
+              ) : (
+                <span className="truncate flex-1 text-left select-none">
+                  {tab.isModified && <span className="text-primary mr-1">●</span>}
+                  {tab.name}
+                </span>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
