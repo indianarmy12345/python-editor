@@ -140,7 +140,7 @@ const PythonIDE = () => {
           // Mobile: Vertical stack
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 min-h-0">
-              <CodeEditor code={activeTab.content} onChange={handleCodeChange} />
+              <CodeEditor code={activeTab.content} onChange={handleCodeChange} language={editorMode === "mysql" ? "sql" : "python"} />
             </div>
             <div className="h-48 border-t border-border flex-shrink-0">
               <Console outputs={outputs} isRunning={isRunning} />
