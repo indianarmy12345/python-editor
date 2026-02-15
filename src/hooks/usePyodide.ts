@@ -161,35 +161,30 @@ export const usePyodide = () => {
   }, []);
 
   const runCode = useCallback(
-    async (code: string) => {
+    async (code: string, mode: "python" | "mysql" = "python") => {
       if (!pyodideRef.current || isRunning) return;
 
       setIsRunning(true);
       setOutputs((prev) => [
         ...prev,
-        { type: "info", content: ">>> Running code...", timestamp: new Date() },
+        { type: "info", content: mode === "mysql" ? ">>> Running SQL query..." : ">>> Running code...", timestamp: new Date() },
       ]);
 
       try {
-        // Auto-install imports
-        await installImports(code);
-
-        // Redirect stdout and stderr
-        pyodideRef.current.runPython(`
-import sys
+        if (mode === "mysql") {
+          // Wrap SQL in Python sqlite3 execution
+          const wrappedCode = `
+import sqlite3, sys
 from io import StringIO
 
 class OutputCapture:
     def __init__(self):
         self.outputs = []
-    
     def write(self, text):
         if text.strip():
             self.outputs.append(text)
-    
     def flush(self):
         pass
-    
     def get_output(self):
         return ''.join(self.outputs)
 
@@ -197,34 +192,105 @@ _stdout_capture = OutputCapture()
 _stderr_capture = OutputCapture()
 sys.stdout = _stdout_capture
 sys.stderr = _stderr_capture
-        `);
 
-        // Run the user's code
-        await pyodideRef.current.runPythonAsync(code);
+if not hasattr(__builtins__, '_sql_conn') if isinstance(__builtins__, dict) else not hasattr(__builtins__, '_sql_conn'):
+    import builtins
+    builtins._sql_conn = sqlite3.connect(':memory:')
 
-        // Get captured output
-        const stdout = pyodideRef.current.runPython("_stdout_capture.get_output()");
-        const stderr = pyodideRef.current.runPython("_stderr_capture.get_output()");
+_conn = __builtins__._sql_conn if isinstance(__builtins__, dict) else __builtins__._sql_conn
 
-        if (stdout) {
-          setOutputs((prev) => [
-            ...prev,
-            { type: "output", content: stdout, timestamp: new Date() },
-          ]);
-        }
+_sql_code = ${JSON.stringify(code)}
+_statements = [s.strip() for s in _sql_code.split(';') if s.strip() and not s.strip().startswith('--')]
 
-        if (stderr) {
-          setOutputs((prev) => [
-            ...prev,
-            { type: "error", content: stderr, timestamp: new Date() },
-          ]);
-        }
+_cursor = _conn.cursor()
+for _stmt in _statements:
+    # Skip pure comment lines
+    _lines = [l for l in _stmt.split('\\n') if l.strip() and not l.strip().startswith('--')]
+    _clean = '\\n'.join(_lines).strip()
+    if not _clean:
+        continue
+    try:
+        _cursor.execute(_clean)
+        if _clean.upper().startswith('SELECT') or _clean.upper().startswith('SHOW') or _clean.upper().startswith('DESCRIBE') or _clean.upper().startswith('PRAGMA'):
+            _cols = [desc[0] for desc in _cursor.description] if _cursor.description else []
+            _rows = _cursor.fetchall()
+            if _cols:
+                _col_widths = [max(len(str(c)), max((len(str(r[i])) for r in _rows), default=0)) for i, c in enumerate(_cols)]
+                _header = ' | '.join(str(c).ljust(w) for c, w in zip(_cols, _col_widths))
+                _sep = '-+-'.join('-' * w for w in _col_widths)
+                print(_header)
+                print(_sep)
+                for _row in _rows:
+                    print(' | '.join(str(v).ljust(w) for v, w in zip(_row, _col_widths)))
+            print(f"({len(_rows)} row{'s' if len(_rows) != 1 else ''})")
+        else:
+            _conn.commit()
+            print(f"Query OK, {_cursor.rowcount} row(s) affected")
+    except Exception as _e:
+        print(f"SQL Error: {_e}", file=sys.stderr)
+`;
+          await pyodideRef.current.runPythonAsync(wrappedCode);
 
-        if (!stdout && !stderr) {
-          setOutputs((prev) => [
-            ...prev,
-            { type: "info", content: "Code executed successfully (no output)", timestamp: new Date() },
-          ]);
+          const stdout = pyodideRef.current.runPython("_stdout_capture.get_output()");
+          const stderr = pyodideRef.current.runPython("_stderr_capture.get_output()");
+
+          if (stdout) {
+            setOutputs((prev) => [...prev, { type: "output", content: stdout, timestamp: new Date() }]);
+          }
+          if (stderr) {
+            setOutputs((prev) => [...prev, { type: "error", content: stderr, timestamp: new Date() }]);
+          }
+          if (!stdout && !stderr) {
+            setOutputs((prev) => [...prev, { type: "info", content: "Query executed successfully (no output)", timestamp: new Date() }]);
+          }
+
+          // Reset stdout/stderr
+          pyodideRef.current.runPython(`import sys; sys.stdout = sys.__stdout__; sys.stderr = sys.__stderr__`);
+        } else {
+          // Python mode
+          await installImports(code);
+
+          pyodideRef.current.runPython(`
+import sys
+from io import StringIO
+
+class OutputCapture:
+    def __init__(self):
+        self.outputs = []
+    def write(self, text):
+        if text.strip():
+            self.outputs.append(text)
+    def flush(self):
+        pass
+    def get_output(self):
+        return ''.join(self.outputs)
+
+_stdout_capture = OutputCapture()
+_stderr_capture = OutputCapture()
+sys.stdout = _stdout_capture
+sys.stderr = _stderr_capture
+          `);
+
+          await pyodideRef.current.runPythonAsync(code);
+
+          const stdout = pyodideRef.current.runPython("_stdout_capture.get_output()");
+          const stderr = pyodideRef.current.runPython("_stderr_capture.get_output()");
+
+          if (stdout) {
+            setOutputs((prev) => [...prev, { type: "output", content: stdout, timestamp: new Date() }]);
+          }
+          if (stderr) {
+            setOutputs((prev) => [...prev, { type: "error", content: stderr, timestamp: new Date() }]);
+          }
+          if (!stdout && !stderr) {
+            setOutputs((prev) => [...prev, { type: "info", content: "Code executed successfully (no output)", timestamp: new Date() }]);
+          }
+
+          pyodideRef.current?.runPython(`
+import sys
+sys.stdout = sys.__stdout__
+sys.stderr = sys.__stderr__
+          `);
         }
       } catch (error: any) {
         setOutputs((prev) => [
@@ -232,11 +298,6 @@ sys.stderr = _stderr_capture
           { type: "error", content: error.message || String(error), timestamp: new Date() },
         ]);
       } finally {
-        pyodideRef.current?.runPython(`
-import sys
-sys.stdout = sys.__stdout__
-sys.stderr = sys.__stderr__
-        `);
         setIsRunning(false);
       }
     },

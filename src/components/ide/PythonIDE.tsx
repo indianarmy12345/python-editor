@@ -37,8 +37,8 @@ const PythonIDE = () => {
     usePyodide();
 
   const handleRun = useCallback(() => {
-    runCode(activeTab.content);
-  }, [activeTab.content, runCode]);
+    runCode(activeTab.content, editorMode);
+  }, [activeTab.content, runCode, editorMode]);
 
   const handleCodeChange = useCallback(
     (value: string | undefined) => {

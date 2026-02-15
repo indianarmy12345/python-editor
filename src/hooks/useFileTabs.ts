@@ -25,14 +25,15 @@ for i in range(5):
 # Try modifying this code and run it!
 `;
 
-const defaultMySQLCode = `-- Welcome to MySQL Editor! 🐬
+const defaultMySQLCode = `-- Welcome to SQL Editor!
 -- Write your SQL queries here.
+-- Uses SQLite under the hood. Tables persist during your session.
 
 -- Example: Create a table
 CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
