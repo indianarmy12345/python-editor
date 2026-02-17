@@ -61,7 +61,7 @@ const MobileNav = ({
                 <span>Switch to {isPython ? "MySQL" : "Python"} Editor</span>
               </button>
               <div className="flex flex-col gap-2">
-                <FileMenu code={code} onCodeChange={onCodeChange} />
+                <FileMenu code={code} onCodeChange={onCodeChange} editorMode={editorMode} />
                 <ThemeToggle />
               </div>
             </div>

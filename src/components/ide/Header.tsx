@@ -46,7 +46,7 @@ const Header = ({ onRun, onStop, onClear, isRunning, code, onCodeChange, editorM
       </div>
       
       <div className="flex items-center gap-2 sm:gap-3">
-        <FileMenu code={code} onCodeChange={onCodeChange} />
+        <FileMenu code={code} onCodeChange={onCodeChange} editorMode={editorMode} />
         <ThemeToggle />
         
         <button

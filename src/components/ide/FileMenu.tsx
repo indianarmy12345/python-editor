@@ -10,8 +10,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { EditorMode } from "./PythonIDE";
 
-const sampleTemplates = [
+const pythonTemplates = [
   {
     name: "Hello World",
     code: `# Hello World Example
@@ -161,20 +162,242 @@ print(f"Square dict: {square_dict}")
   },
 ];
 
+const sqlTemplates = [
+  {
+    name: "JOIN - Inner Join",
+    code: `-- Inner JOIN Example
+CREATE TABLE departments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE employees (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    dept_id INTEGER,
+    salary REAL,
+    FOREIGN KEY (dept_id) REFERENCES departments(id)
+);
+
+INSERT INTO departments (name) VALUES
+('Engineering'), ('Marketing'), ('Sales'), ('HR');
+
+INSERT INTO employees (name, dept_id, salary) VALUES
+('Alice', 1, 95000), ('Bob', 2, 72000),
+('Charlie', 1, 88000), ('Diana', 3, 67000),
+('Eve', 1, 102000), ('Frank', 4, 61000);
+
+-- INNER JOIN: employees with their department
+SELECT e.name AS employee, d.name AS department, e.salary
+FROM employees e
+INNER JOIN departments d ON e.dept_id = d.id
+ORDER BY e.salary DESC;
+`,
+  },
+  {
+    name: "JOIN - Left & Cross",
+    code: `-- LEFT JOIN and CROSS JOIN Examples
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    category_id INTEGER,
+    price REAL
+);
+
+INSERT INTO categories (name) VALUES
+('Electronics'), ('Books'), ('Clothing'), ('Sports');
+
+INSERT INTO products (name, category_id, price) VALUES
+('Laptop', 1, 999.99), ('Phone', 1, 699.99),
+('Novel', 2, 14.99), ('T-Shirt', 3, 24.99);
+
+-- LEFT JOIN: all categories, even without products
+SELECT c.name AS category, p.name AS product, p.price
+FROM categories c
+LEFT JOIN products p ON c.id = p.category_id
+ORDER BY c.name;
+`,
+  },
+  {
+    name: "Aggregations",
+    code: `-- Aggregation Functions
+CREATE TABLE sales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product TEXT NOT NULL,
+    region TEXT NOT NULL,
+    amount REAL NOT NULL,
+    quantity INTEGER NOT NULL
+);
+
+INSERT INTO sales (product, region, amount, quantity) VALUES
+('Widget A', 'North', 150.00, 3),
+('Widget B', 'South', 230.00, 5),
+('Widget A', 'South', 180.00, 4),
+('Widget C', 'North', 90.00, 2),
+('Widget B', 'North', 310.00, 7),
+('Widget A', 'North', 200.00, 5),
+('Widget C', 'South', 120.00, 3),
+('Widget B', 'South', 275.00, 6);
+
+-- Total sales by product
+SELECT product,
+    COUNT(*) AS total_orders,
+    SUM(amount) AS total_revenue,
+    ROUND(AVG(amount), 2) AS avg_order,
+    MIN(amount) AS min_order,
+    MAX(amount) AS max_order
+FROM sales
+GROUP BY product
+ORDER BY total_revenue DESC;
+
+-- Sales by region with HAVING
+SELECT region,
+    COUNT(*) AS orders,
+    SUM(amount) AS revenue
+FROM sales
+GROUP BY region
+HAVING SUM(amount) > 400;
+`,
+  },
+  {
+    name: "Subqueries",
+    code: `-- Subquery Examples
+CREATE TABLE students (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    grade REAL NOT NULL,
+    course TEXT NOT NULL
+);
+
+INSERT INTO students (name, grade, course) VALUES
+('Alice', 92, 'Math'), ('Bob', 85, 'Science'),
+('Charlie', 78, 'Math'), ('Diana', 95, 'Science'),
+('Eve', 88, 'Math'), ('Frank', 72, 'Science'),
+('Grace', 91, 'Math'), ('Henry', 83, 'Science');
+
+-- Students above the average grade
+SELECT name, grade, course
+FROM students
+WHERE grade > (SELECT AVG(grade) FROM students)
+ORDER BY grade DESC;
+
+-- Top student per course (correlated subquery)
+SELECT s.name, s.grade, s.course
+FROM students s
+WHERE s.grade = (
+    SELECT MAX(s2.grade)
+    FROM students s2
+    WHERE s2.course = s.course
+);
+
+-- Using subquery in FROM (derived table)
+SELECT course, avg_grade
+FROM (
+    SELECT course, ROUND(AVG(grade), 2) AS avg_grade
+    FROM students
+    GROUP BY course
+) AS course_stats
+ORDER BY avg_grade DESC;
+`,
+  },
+  {
+    name: "Window Functions",
+    code: `-- Window Functions (SQLite 3.25+)
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer TEXT NOT NULL,
+    product TEXT NOT NULL,
+    amount REAL NOT NULL,
+    order_date TEXT NOT NULL
+);
+
+INSERT INTO orders (customer, product, amount, order_date) VALUES
+('Alice', 'Laptop', 999, '2024-01-15'),
+('Bob', 'Phone', 699, '2024-01-20'),
+('Alice', 'Tablet', 499, '2024-02-10'),
+('Charlie', 'Laptop', 999, '2024-02-15'),
+('Bob', 'Tablet', 499, '2024-03-01'),
+('Alice', 'Phone', 699, '2024-03-10'),
+('Charlie', 'Phone', 699, '2024-03-20');
+
+-- ROW_NUMBER and RANK
+SELECT customer, product, amount,
+    ROW_NUMBER() OVER (ORDER BY amount DESC) AS row_num,
+    RANK() OVER (ORDER BY amount DESC) AS rank,
+    DENSE_RANK() OVER (ORDER BY amount DESC) AS dense_rank
+FROM orders;
+
+-- Running total per customer
+SELECT customer, product, amount, order_date,
+    SUM(amount) OVER (PARTITION BY customer ORDER BY order_date) AS running_total
+FROM orders
+ORDER BY customer, order_date;
+`,
+  },
+  {
+    name: "CASE & String Functions",
+    code: `-- CASE Expressions and String Functions
+CREATE TABLE contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT,
+    age INTEGER
+);
+
+INSERT INTO contacts (first_name, last_name, email, age) VALUES
+('Alice', 'Smith', 'alice@example.com', 28),
+('Bob', 'Johnson', NULL, 35),
+('Charlie', 'Williams', 'charlie@test.com', 17),
+('Diana', 'Brown', 'diana@example.com', 42),
+('Eve', 'Davis', NULL, 22);
+
+-- CASE expression for age groups
+SELECT first_name, last_name, age,
+    CASE
+        WHEN age < 18 THEN 'Minor'
+        WHEN age BETWEEN 18 AND 30 THEN 'Young Adult'
+        WHEN age BETWEEN 31 AND 40 THEN 'Adult'
+        ELSE 'Senior'
+    END AS age_group
+FROM contacts;
+
+-- String functions
+SELECT
+    UPPER(first_name) AS upper_name,
+    LOWER(last_name) AS lower_name,
+    LENGTH(first_name || ' ' || last_name) AS full_name_len,
+    COALESCE(email, 'No email') AS email_display,
+    REPLACE(COALESCE(email, ''), '@', ' [at] ') AS masked_email
+FROM contacts;
+`,
+  },
+];
+
 interface FileMenuProps {
   code: string;
   onCodeChange: (code: string) => void;
+  editorMode?: EditorMode;
 }
 
-const FileMenu = ({ code, onCodeChange }: FileMenuProps) => {
+const FileMenu = ({ code, onCodeChange, editorMode = "python" }: FileMenuProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isSQL = editorMode === "mysql";
+  const templates = isSQL ? sqlTemplates : pythonTemplates;
+  const fileExt = isSQL ? ".sql" : ".py";
+  const fileAccept = isSQL ? ".sql,.txt" : ".py,.txt";
 
   const handleSave = () => {
-    const blob = new Blob([code], { type: "text/x-python" });
+    const blob = new Blob([code], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "script.py";
+    a.download = isSQL ? "query.sql" : "script.py";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -195,7 +418,6 @@ const FileMenu = ({ code, onCodeChange }: FileMenuProps) => {
       };
       reader.readAsText(file);
     }
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -211,7 +433,7 @@ const FileMenu = ({ code, onCodeChange }: FileMenuProps) => {
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept=".py,.txt"
+        accept={fileAccept}
         className="hidden"
       />
       <DropdownMenu>
@@ -229,7 +451,7 @@ const FileMenu = ({ code, onCodeChange }: FileMenuProps) => {
         <DropdownMenuContent align="start" className="w-56">
           <DropdownMenuItem onClick={handleSave}>
             <FileDown className="w-4 h-4 mr-2" />
-            Save as .py
+            Save as {fileExt}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleLoad}>
             <FileUp className="w-4 h-4 mr-2" />
@@ -239,10 +461,10 @@ const FileMenu = ({ code, onCodeChange }: FileMenuProps) => {
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <FileCode className="w-4 h-4 mr-2" />
-              Sample Templates
+              {isSQL ? "SQL Templates" : "Sample Templates"}
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-48">
-              {sampleTemplates.map((template) => (
+            <DropdownMenuSubContent className="w-52">
+              {templates.map((template) => (
                 <DropdownMenuItem
                   key={template.name}
                   onClick={() => handleTemplateSelect(template.code)}
