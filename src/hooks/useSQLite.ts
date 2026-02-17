@@ -29,7 +29,7 @@ export const useSQLite = () => {
         const initSqlJs = (await import("sql.js")).default;
         const SQL = await initSqlJs({
           locateFile: (file: string) =>
-            `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.14.0/${file}`,
+            `https://cdn.jsdelivr.net/npm/sql.js@1.14.0/dist/${file}`,
         });
         const database = new SQL.Database();
         dbRef.current = database;
